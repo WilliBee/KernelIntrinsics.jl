@@ -9,6 +9,7 @@ using LLVM.Interop: @asmcall
 
 
 import KernelIntrinsics: _warpsize
+import KernelIntrinsics: _laneid
 # Import parent module and types
 
 
@@ -19,6 +20,10 @@ end
 
 Base.Experimental.@overlay AMDGPU.method_table @inline function _warpsize()
     return AMDGPU.Device.wavefrontsize()
+end
+
+Base.Experimental.@overlay AMDGPU.method_table @inline function _laneid()
+    return AMDGPU.Device.activelane() + 1
 end
 
 include("AMDGPU/device.jl")

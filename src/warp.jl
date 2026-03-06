@@ -285,7 +285,7 @@ macro warpfold(val, lane, op=:+, ws=:(KernelIntrinsics._warpsize()), mask=0xffff
     quote
         local offset = 1
         while offset < $(esc(ws))
-            shuffled = @shfl(Down, $(esc(val)), offset, $(esc(ws)), $(esc(mask)))
+            shuffled = @shfl(Down, $(esc(val)), offset)
             $(esc(val)) = $(esc(op))(shuffled, $(esc(val)))
             offset <<= 1
         end
@@ -324,3 +324,49 @@ macro vote(ModeType, pred, mask=0xffffffff)
         _vote($ModeType, $(esc(mask)), $(esc(pred)))
     end
 end
+
+
+# Simple fallbacks to shuffle operations if backends do not provide them:
+
+# Fallback implementations using shuffle operations
+@inline _vote(::Type{Ballot}, mask, pred) = _ballot_from_shfl(pred)
+@inline _vote(::Type{All}, mask, pred) = _vote_all_from_shfl(pred)
+@inline _vote(::Type{AnyLane}, mask, pred) = _vote_any_from_shfl(pred)
+@inline _vote(::Type{Uni}, mask, pred) = _vote_all_from_shfl(pred) | _vote_all_from_shfl(!pred)
+
+
+@inline function _ballot_from_shfl(pred)::UInt64
+    lane = @laneid # 1-based
+    ws = @warpsize
+
+    # use UInt64 from the start so it works for both warpsize 32 and 64
+    val = UInt64(pred) << (lane - 1)  # bit at lane position
+
+    @warpreduce(val, lane, |)   # lane ws holds full OR in lower ws bits
+
+    # broadcast from last lane (0-based index = ws - 1)
+    result = @shfl(Idx, val, ws)
+
+    return result  # lower 32 bits used for wave32, all 64 for wave64
+end
+
+@inline function _vote_all_from_shfl(pred)
+    lane = @laneid()
+    ws = @warpsize()
+
+    @warpfold(pred, lane, &)  # all lanes AND together
+
+    result = @shfl(Idx, pred, ws)
+    return result
+end
+
+@inline function _vote_any_from_shfl(pred)
+    lane = @laneid()
+    ws = @warpsize()
+
+    @warpfold(pred, lane, |)  # any lane OR together
+
+    result = @shfl(Idx, val, 1)
+    return result != UInt32(0)
+end
+

@@ -114,6 +114,11 @@ macro warpsize()
     end
 end
 
+macro laneid()
+    quote
+        _laneid()
+    end
+end
 
 function scope_ordering(args...)
     scope = nothing

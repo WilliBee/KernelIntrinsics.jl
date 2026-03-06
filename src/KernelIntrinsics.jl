@@ -18,7 +18,7 @@ export @shfl, @warpreduce, @warpfold, @vote
 
 function get_warpsize end # outside kernels
 function _warpsize end # inside kernels
-
+function _laneid end
 
 include("helper.jl")
 include("device.jl")
