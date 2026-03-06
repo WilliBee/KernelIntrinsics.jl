@@ -1,7 +1,12 @@
+using Pkg
+Pkg.activate("roc")
+using Revise
+
 using Test
 using KernelAbstractions
 using KernelIntrinsics
 using CUDA
+using AMDGPU
 
 ## Helper function to count number of vectorize loads in asm
 

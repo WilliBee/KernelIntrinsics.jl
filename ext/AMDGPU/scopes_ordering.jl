@@ -8,14 +8,14 @@ import KernelIntrinsics: fence, atomic_load, atomic_store!
 const SCOPE_TO_GCN = Dict{Type{<:Scope},String}(
     Workgroup => "workgroup",
     Device => "agent",
-    System => "system"
+    System => "system",
 )
 
 const FENCE_ORDER_TO_GCN = Dict{Type{<:Ordering},String}(
     Acquire => "acquire",
     Release => "release",
     AcqRel => "acq_rel",
-    SeqCst => "seq_cst"
+    SeqCst => "seq_cst",
 )
 
 const LOAD_ORDER_TO_GCN = Dict{Type{<:Ordering},String}(
@@ -32,11 +32,16 @@ const STORE_ORDER_TO_GCN = Dict{Type{<:Ordering},String}(
     Release => "release",
 )
 
-const TYPE_TO_GCN = Dict{DataType,Tuple{String,Int}}(
+# Scoped orderings (need syncscope), unscoped ones do not
+const SCOPED_LOAD_ORDERINGS = [Relaxed, Acquire]
+const SCOPED_STORE_ORDERINGS = [Relaxed, Release]
+
+const TYPE_TO_LLVM = Dict{DataType,Tuple{String,Int}}(
     Int8 => ("i8", 1),
     UInt8 => ("i8", 1),
     Int16 => ("i16", 2),
     UInt16 => ("i16", 2),
+    Float16 => ("half", 2),
     Int32 => ("i32", 4),
     UInt32 => ("i32", 4),
     Float32 => ("float", 4),
@@ -56,7 +61,9 @@ for ScopeType in [Workgroup, Device, System]
             ret void
         """
         @eval begin
-            Base.Experimental.@overlay AMDGPU.method_table @inline function fence(::Type{$ScopeType}, ::Type{$OrderType})
+            Base.Experimental.@overlay AMDGPU.method_table @inline function fence(
+                ::Type{$ScopeType}, ::Type{$OrderType}
+            )
                 Base.llvmcall($ir, Nothing, Tuple{})
             end
         end
@@ -69,22 +76,26 @@ for ScopeType in [Workgroup, Device, System]
     for OrderType in [Weak, Relaxed, Volatile, Acquire]
         scope_str = SCOPE_TO_GCN[ScopeType]
         order_str = LOAD_ORDER_TO_GCN[OrderType]
-        for (T, (gcn_type, align)) in TYPE_TO_GCN
-            syncscope = OrderType in [Weak, Volatile] ? "" : " syncscope(\"$scope_str\")"
+        use_syncscope = OrderType in SCOPED_LOAD_ORDERINGS
+        for (T, (llvm_type, align)) in TYPE_TO_LLVM
+            syncscope = use_syncscope ? " syncscope(\"$scope_str\")" : ""
             ir = """
-                %ptr = inttoptr i64 %0 to $gcn_type*
-                %val = load atomic $gcn_type, $gcn_type* %ptr$syncscope $order_str, align $align
-                ret $gcn_type %val
+                %val = load atomic $llvm_type, $llvm_type addrspace(1)* %0$syncscope $order_str, align $align
+                ret $llvm_type %val
             """
             @eval begin
                 Base.Experimental.@overlay AMDGPU.method_table @inline function atomic_load(
                     data::ROCDeviceArray{$T,N,1},
                     index::Integer,
                     ::Type{$ScopeType},
-                    ::Type{$OrderType}
+                    ::Type{$OrderType},
                 ) where {N}
-                    ptr = data.ptr + (index - 1) * sizeof($T)
-                    Base.llvmcall($ir, $T, Tuple{Int64}, reinterpret(Int64, ptr))
+                    ptr = pointer(data, index)
+                    Base.llvmcall(
+                        $ir, $T,
+                        Tuple{Core.LLVMPtr{$T,1}},
+                        ptr,
+                    )
                 end
             end
         end
@@ -97,11 +108,11 @@ for ScopeType in [Workgroup, Device, System]
     for OrderType in [Weak, Relaxed, Volatile, Release]
         scope_str = SCOPE_TO_GCN[ScopeType]
         order_str = STORE_ORDER_TO_GCN[OrderType]
-        for (T, (gcn_type, align)) in TYPE_TO_GCN
-            syncscope = OrderType in [Weak, Volatile] ? "" : " syncscope(\"$scope_str\")"
+        use_syncscope = OrderType in SCOPED_STORE_ORDERINGS
+        for (T, (llvm_type, align)) in TYPE_TO_LLVM
+            syncscope = use_syncscope ? " syncscope(\"$scope_str\")" : ""
             ir = """
-                %ptr = inttoptr i64 %0 to $gcn_type*
-                store atomic $gcn_type %1, $gcn_type* %ptr$syncscope $order_str, align $align
+                store atomic $llvm_type %1, $llvm_type addrspace(1)* %0$syncscope $order_str, align $align
                 ret void
             """
             @eval begin
@@ -110,10 +121,14 @@ for ScopeType in [Workgroup, Device, System]
                     index::Integer,
                     val::$T,
                     ::Type{$ScopeType},
-                    ::Type{$OrderType}
+                    ::Type{$OrderType},
                 ) where {N}
-                    ptr = data.ptr + (index - 1) * sizeof($T)
-                    Base.llvmcall($ir, Nothing, Tuple{Int64,$T}, reinterpret(Int64, ptr), val)
+                    ptr = pointer(data, index)
+                    Base.llvmcall(
+                        $ir, Nothing,
+                        Tuple{Core.LLVMPtr{$T,1},$T},
+                        ptr, val,
+                    )
                 end
             end
         end

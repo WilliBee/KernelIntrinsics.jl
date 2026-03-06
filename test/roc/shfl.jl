@@ -278,8 +278,9 @@ end
 @testset "warpreduce with defaults" begin
     @kernel function test_warpreduce_defaults(dst, src)
         I = @index(Global, Linear)
+        warpsz = @warpsize
         val = src[I]
-        lane = (I - 1) % W + 1
+        lane = (I - 1) % warpsz + 1
 
         @warpreduce(val, lane, +)
 
