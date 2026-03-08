@@ -105,8 +105,7 @@ Perform inclusive prefix sum within a warp:
 @kernel function warpreduce_kernel(dst, src)
     I = @index(Global, Linear)
     val = src[I]
-    lane = (I - 1) % 32 + 1
-    @warpreduce(val, lane, +)
+    @warpreduce(val, +)
     dst[I] = val
 end
 
@@ -123,8 +122,7 @@ Reduce all values in a warp to a single result:
 @kernel function warpfold_kernel(dst, src)
     I = @index(Global, Linear)
     val = src[I]
-    lane = (I - 1) % 32 + 1
-    @warpfold(val, lane, +)
+    @warpfold(val, +)
     dst[I] = val
 end
 
