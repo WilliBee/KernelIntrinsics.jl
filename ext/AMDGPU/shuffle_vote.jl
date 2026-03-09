@@ -17,12 +17,16 @@ const ROC_SHFL_DISPATCH = Dict(
 
 for T in (Int32, UInt32, Float32)
     for (direction, roc_fname) in ROC_SHFL_DISPATCH
-        @eval begin
-            Base.Experimental.@overlay AMDGPU.method_table @inline _shfl(::Type{$direction}, mask, val::$T, src) =
-                AMDGPU.Device.$roc_fname(val, src)
-            #Base.Experimental.@overlay AMDGPU.method_table @inline _shfl(::Type{$direction}, mask, val::$T, src, ::Val{ws}) where {ws} =
-            #    AMDGPU.Device.$roc_fname(val, src)
+        if direction != Idx
+            @eval begin
+                Base.Experimental.@overlay AMDGPU.method_table @inline _shfl(::Type{$direction}, mask, val::$T, src) =
+                    AMDGPU.Device.$roc_fname(val, src)
+            end
         end
+    end
+    @eval begin
+        Base.Experimental.@overlay AMDGPU.method_table @inline _shfl(::Type{Idx}, mask, val::$T, src) =
+            AMDGPU.Device.shfl(val, src - Int32(1))
     end
 end
 
