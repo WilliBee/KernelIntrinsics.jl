@@ -334,14 +334,11 @@ end
 @inline _vote(::Type{Uni}, mask, pred) = _vote_all_from_shfl(pred) | _vote_all_from_shfl(!pred)
 
 
-@inline function _ballot_from_shfl(pred)::UInt64
-    lane = @laneid # 1-based
-    ws = @warpsize
-
+@inline function _ballot_from_shfl(pred, lane=@laneid(), ws=@warpsize())::UInt64
     # use UInt64 from the start so it works for both warpsize 32 and 64
     val = UInt64(pred) << (lane - 1)  # bit at lane position
 
-    @warpreduce(val, |)   # lane ws holds full OR in lower ws bits
+    @warpreduce(val, |, ws)   # lane ws holds full OR in lower ws bits
 
     # broadcast from last lane (0-based index = ws - 1)
     result = @shfl(Idx, val, ws)
@@ -349,21 +346,15 @@ end
     return result  # lower 32 bits used for wave32, all 64 for wave64
 end
 
-@inline function _vote_all_from_shfl(pred)
-    lane = @laneid()
-    ws = @warpsize()
-
-    @warpfold(pred, &)  # all lanes AND together
+@inline function _vote_all_from_shfl(pred, lane=@laneid(), ws=@warpsize())
+    @warpfold(pred, &, ws)  # all lanes AND together
 
     result = @shfl(Idx, pred, 1)
     return result
 end
 
-@inline function _vote_any_from_shfl(pred)
-    lane = @laneid()
-    ws = @warpsize()
-
-    @warpfold(pred, |)  # any lane OR together
+@inline function _vote_any_from_shfl(pred, lane=@laneid(), ws=@warpsize())
+    @warpfold(pred, |, ws)  # any lane OR together
 
     result = @shfl(Idx, pred, 1)
     return result != UInt32(0)

@@ -11,7 +11,9 @@ function name end
 device(backend::Backend, i::Integer) = devices(backend)[i]
 device(x::SubArray) = device(parent(x))
 
-deviceid(src::AbstractArray) = deviceid(device(src))  # 1-based
-deviceid(x::SubArray) = deviceid(parent(x))
+function deviceid(x::AbstractArray)
+    p = parent(x)
+    p === x ? deviceid(device(x)) : deviceid(p)
+end
 
 get_warpsize(src::AbstractArray) = get_warpsize(device(src))
