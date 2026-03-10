@@ -6,6 +6,3 @@ SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
 
 [sources]
 KernelIntrinsics = {path = "../../.."}
-
-[paths]
-Metal = "https://github.com/JuliaGPU/Metal.jl#main"
