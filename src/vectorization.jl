@@ -131,9 +131,14 @@ function vstore! end
 # vload — DenseArray (CuArray, CuDeviceArray, etc.)
 # ---------------------------------------------------------------------------
 
+# Compile-time check for power-of-2 sized types
+# NOTE: For Metal GPU compilation, ispow2(sizeof(T)) is not a compile-time constant for custom structs,
+# causing both branches to be compiled. Using @generated forces evaluation at Julia compile time.
+@generated _is_pow2_T(::Type{T}) where {T} = ispow2(sizeof(T))
+
 # Outer @inline handles non-pow2 types before reaching @generated
 @inline function vload(A::DenseArray{T}, idx, ::Val{Nitem}, ::Val{Rebase}, ::Val{Alignment})::NTuple{Nitem,T} where {Alignment,T,Nitem,Rebase}
-    if !ispow2(sizeof(T))
+    if !_is_pow2_T(T)
         if Rebase
             base = (idx - 1) * Nitem + 1
             return ntuple(i -> A[base+i-1], Val(Nitem))
@@ -216,14 +221,14 @@ end
 
 # Outer @inline handles non-pow2 types before reaching @generated
 @inline function vstore!(A::DenseArray{T}, idx, values::NTuple{Nitem,T}, ::Val{Rebase}, ::Val{Alignment}) where {Alignment,T,Nitem,Rebase}
-    if !ispow2(sizeof(T))
+    if !_is_pow2_T(T)
         if Rebase
             base = (idx - 1) * Nitem + 1
-            for i in 1:Nitem
+            for i in ntuple(identity, Val(Nitem))
                 A[base+i-1] = values[i]
             end
         else
-            for i in 1:Nitem
+            for i in ntuple(identity, Val(Nitem))
                 A[idx+i-1] = values[i]
             end
         end
@@ -434,14 +439,14 @@ end
 
 @inline function _vstore_batch!(A::AbstractArray{T}, idx, values::NTuple{Nitem,T}) where {T,Nitem}
     base = (idx - 1) * Nitem + 1
-    for i in 1:Nitem
+    for i in ntuple(identity, Val(Nitem))
         A[base+i-1] = values[i]
     end
     return
 end
 
 @inline function _vstore_norebase!(A::AbstractArray{T}, idx, values::NTuple{Nitem,T}) where {T,Nitem}
-    for i in 1:Nitem
+    for i in ntuple(identity, Val(Nitem))
         A[idx+i-1] = values[i]
     end
     return

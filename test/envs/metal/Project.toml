@@ -1,0 +1,11 @@
+[deps]
+KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
+KernelIntrinsics = "f9588fbb-d238-4998-b15a-468e8766d49a"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
+
+[sources]
+KernelIntrinsics = {path = "../../.."}
+
+[paths]
+Metal = "https://github.com/JuliaGPU/Metal.jl#main"
