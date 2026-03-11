@@ -3,9 +3,8 @@ import KernelIntrinsics: All, AnyLane, Uni, Ballot
 import KernelIntrinsics: _shfl, _vote
 
 const SHFL_DISPATCH = Dict(
-    Up => :simd_shuffle_up,
-    Down => :simd_shuffle_down,
-    Xor => :simd_shuffle_xor
+    Up => :(Metal.simd_shuffle_up),
+    Down => :(Metal.simd_shuffle_down)
 )
 
 for T in (:Float32, :Int32, :UInt32, :Float16, :Int16, :UInt16)
@@ -35,6 +34,10 @@ for (jltype, suffix) in simd_shuffle_map
         Base.Experimental.@overlay Metal.method_table @inline _shfl(::Type{Idx}, mask, val::$jltype, src) =
             ccall($"extern air.simd_shuffle.$suffix",
                 llvmcall, $jltype, ($jltype, Int16), val, src - 0x1)
+
+        Base.Experimental.@overlay Metal.method_table @inline _shfl(::Type{Xor}, mask, val::$jltype, src) =
+            ccall($"extern air.simd_shuffle_xor.$suffix",
+                llvmcall, $jltype, ($jltype, Int16), val, src)
     end
 end
 
