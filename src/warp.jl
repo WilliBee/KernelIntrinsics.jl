@@ -158,18 +158,14 @@ end
 end
 
 """
-    @shfl(direction, val, src, [warpsize=@warpsize()], [mask=0xffffffff])
+    @shfl(direction, val, src, [mask=0xffffffff])
 
 Perform a warp shuffle operation, exchanging values between lanes within a warp.
-
-The default warpsize is retrieved at runtime via `@warpsize()`, which queries the backend
-(32 on CUDA, but may differ on future backends).
 
 # Arguments
 - `direction`: Shuffle direction ([`Up`](@ref), [`Down`](@ref), [`Xor`](@ref), or [`Idx`](@ref))
 - `val`: Value to shuffle (supports primitives, structs, and NTuples)
 - `src`: Offset (for `Up`/`Down`), XOR mask (for `Xor`), or source lane 0-based index (for `Idx`)
-- `warpsize`: Warp size (default: `@warpsize()`)
 - `mask`: Lane participation mask (default: `0xffffffff` for all lanes)
 
 # Example
@@ -203,12 +199,9 @@ Perform an inclusive prefix scan within a warp using shuffle-up operations.
 After this macro, lane `i` (1-based) holds the result of applying `op` to the values
 of lanes `1` through `i`. The result in the last lane is the warp-wide reduction.
 
-The default warpsize is retrieved at runtime via `@warpsize()`, which queries the backend
-(32 on CUDA, but may differ on future backends).
-
 # Arguments
 - `val`: Value to scan (modified in-place)
-- `op`: Binary associative operator (default: `+`)
+- `op`: Binary associative operator
 - `lane`: Current lane index (1-based; default: `@laneid()`)
 - `warpsize`: Warp size (default: `@warpsize()`)
 - `mask`: Lane participation mask (default: `0xffffffff`)
@@ -250,12 +243,9 @@ Perform a warp-wide reduction, combining all lane values using the specified ope
 Uses shuffle-down operations internally. After this macro, all lanes hold the
 warp-wide result.
 
-The default warpsize is retrieved at runtime via `@warpsize()`, which queries the backend
-(32 on CUDA, but may differ on future backends).
-
 # Arguments
 - `val`: Value to reduce (modified in-place)
-- `op`: Binary associative operator (default: `+`)
+- `op`: Binary associative operator
 - `lane`: Current lane index (1-based; accepted for API consistency but unused; default: `@laneid()`)
 - `warpsize`: Warp size (default: `@warpsize()`)
 - `mask`: Lane participation mask (default: `0xffffffff`)

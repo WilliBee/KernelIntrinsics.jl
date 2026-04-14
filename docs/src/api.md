@@ -6,12 +6,6 @@
 vload
 vstore!
 ```
-### Dynamic Alignment Operations
-...
-```@docs
-vload_multi
-vstore_multi!
-```
 
 ## Memory Ordering
 ### Macros
@@ -42,6 +36,7 @@ KernelIntrinsics.SeqCst
 ### Macros
 ```@docs
 @warpsize
+@laneid
 @shfl
 @warpreduce
 @warpfold

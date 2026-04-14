@@ -104,9 +104,9 @@ macro access end
     @warpsize()
 
 Return the warp size of the current backend as an `Int`.
-Queries the backend at runtime — 32 on CUDA, but may differ on future backends.
+Queries the backend at runtime — 32 on CUDA, 64 on ROCm.
 
-See also: [`@shfl`](@ref), [`@warpreduce`](@ref), [`@warpfold`](@ref)
+See also: [`@laneid`](@ref), [`@shfl`](@ref), [`@warpreduce`](@ref), [`@warpfold`](@ref)
 """
 macro warpsize()
     quote
@@ -114,6 +114,13 @@ macro warpsize()
     end
 end
 
+"""
+    @laneid()
+
+Return the 1-based lane index of the current thread within its warp/wavefront.
+
+See also: [`@warpsize`](@ref), [`@warpreduce`](@ref), [`@warpfold`](@ref)
+"""
 macro laneid()
     quote
         _laneid()
