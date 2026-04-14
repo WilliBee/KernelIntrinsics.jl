@@ -9,36 +9,21 @@ end
 # ============================================================================
 # Metal GPU Vectorized Memory Access Primitives
 # ============================================================================
-# These functions provide portable vectorized load/store operations that work
-# around Metal shader compiler limitations compared to CUDA/AMDGPU backends.
-#
 # KEY DESIGN DECISIONS:
 #
 # 1. SIMD.Vec vs NTuple:
 #    Metal's AIR (Apple IR) backend recognizes LLVM vector types <N x T> 
 #    (used by SIMD.Vec) to emit vector load/store instructions. However, 
 #    Julia's NTuple{N,T} lowers to LLVM array types [N x T], which Metal 
-#    scalarizes into N separate scalar loads. This is a fundamental 
-#    limitation of Metal's compiler pattern matching versus CUDA's NVPTX 
-#    backend, which handles both representations equivalently.
+#    scalarizes into N separate scalar loads. 
 #
-# 2. Primitive vs Composite Type Separation:
+# 2. Primitive vs Composite Type :
 #    SIMD.Vec{N,T} requires T to be a primitive LLVM scalar type (Integers, 
 #    Floats). User-defined structs, even isbits, cannot be used directly 
 #    as SIMD.Vec element types. We therefore flatten structs to primitive 
 #    chunks (UInt8/UInt16/Float32) for the vector operation, then bitcast 
 #    back to the original struct layout. This two-step process is necessary 
 #    because Metal lacks CUDA's ability to vectorize arbitrary aggregate types.
-#
-# 3. @generated Functions and Quote Blocks:
-#    Metal's compiler requires all dynamic values (alignment, sizes, types) 
-#    to be compile-time constants in the generated LLVM IR. Operations like 
-#    `trailing_zeros(N * sizeof(T))` or `Ref(obj)` create runtime calls 
-#    (jl_f_trailing_zeros, jl_new_structv, gpu_gc_pool_alloc) that are 
-#    unsupported in Metal's device execution environment. By wrapping in 
-#    @generated, these computations execute during Julia's compilation phase, 
-#    producing literal constants in the quoted code that Metal can inline 
-#    directly into shader instructions without runtime overhead.
 # ============================================================================
 
 
