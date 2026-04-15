@@ -1,4 +1,4 @@
-import KernelIntrinsics: _vload_batch, _vstore_batch!, _vload_norebase, _vstore_norebase!, _llvm_barrier
+import KernelIntrinsics: _vload_batch, _vstore_batch!, _vload_norebase, _vstore_norebase!, vload, vstore!, _llvm_barrier
 
 # Metal-compatible barrier (no-op for Metal)
 Base.Experimental.@overlay Metal.method_table @inline function _llvm_barrier()
@@ -148,4 +148,91 @@ Base.Experimental.@overlay Metal.method_table @inline @generated function _vstor
             unsafe_store!(ptr, raw, 1, Val($sz))
         end
     end
+end
+
+
+# ============================================================================
+# Metal-specific overrides for vload/vstore
+# ============================================================================
+# These are used to bypass vload_multi/vload_pattern/vstore_pattern!/vstore_multi!
+# that are quite slow on Metal. Also Metal does not seem too penalized by unalignment
+
+@generated _is_pow2_T(::Type{T}) where {T} = ispow2(sizeof(T))
+
+@inline function vload_metal(A::DenseArray{T}, idx, ::Val{Nitem}, ::Val{Rebase}) where {T, Nitem,Rebase}
+    if !_is_pow2_T(T) || sizeof(T) == 1
+        if Rebase
+            base = (idx - 1) * Nitem + 1
+            return ntuple(i -> A[base+i-1], Val(Nitem))
+        else
+            return ntuple(i -> A[idx+i-1], Val(Nitem))
+        end
+    else
+        if Rebase
+            _llvm_barrier()
+            result = _vload_batch(A, idx, Val(Nitem))
+            _llvm_barrier()
+            return result
+        else
+            _llvm_barrier()
+            result = _vload_norebase(A, idx, Val(Nitem))
+            _llvm_barrier()
+            return result
+        end
+    end
+end
+
+Base.Experimental.@overlay Metal.method_table @inline function vload(
+    A::DenseArray{T}, idx, ::Val{Nitem}, ::Val{Rebase}, ::Val{Alignment}
+)::NTuple{Nitem,T} where {Alignment,T,Nitem,Rebase}
+    vload_metal(A, idx, Val(Nitem), Val(Rebase))
+end
+
+Base.Experimental.@overlay Metal.method_table @inline function vload(
+    A::DenseArray{T}, idx, ::Val{Nitem}, ::Val{Rebase}=Val(true)
+)::NTuple{Nitem,T} where {T,Nitem,Rebase}
+    vload_metal(A, idx, Val(Nitem), Val(Rebase))
+end
+
+@inline function vstore_metal!(
+    A::DenseArray{T}, idx, values::NTuple{Nitem,T}, ::Val{Rebase}
+) where {T,Nitem,Rebase}
+    if !_is_pow2_T(T) || sizeof(T) == 1
+        if Rebase
+            base = (idx - 1) * Nitem + 1
+            for i in ntuple(identity, Val(Nitem))
+                A[base+i-1] = values[i]
+            end
+        else
+            for i in ntuple(identity, Val(Nitem))
+                A[idx+i-1] = values[i]
+            end
+        end
+        return nothing
+    else
+        if Rebase
+            _llvm_barrier()
+            _vstore_batch!(A, idx, values)
+            _llvm_barrier()
+        else
+            _llvm_barrier()
+            _vstore_norebase!(A, idx, values)
+            _llvm_barrier()
+        end
+        return nothing
+    end
+end
+
+Base.Experimental.@overlay Metal.method_table @inline function vstore!(
+    A::DenseArray{T}, idx, values::NTuple{Nitem,T}, ::Val{Rebase}, ::Val{Alignment}
+) where {Alignment,T,Nitem,Rebase}
+    vstore_metal!(A, idx, values, Val(Rebase))
+    return nothing
+end
+
+Base.Experimental.@overlay Metal.method_table @inline function vstore!(
+    A::DenseArray{T}, idx, values::NTuple{Nitem,T}, ::Val{Rebase}=Val(true)
+) where {T,Nitem,Rebase}
+    vstore_metal!(A, idx, values, Val(Rebase))
+    return nothing
 end
