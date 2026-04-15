@@ -1,9 +1,18 @@
 import KernelIntrinsics: _vload_batch, _vstore_batch!, _vload_norebase, _vstore_norebase!, vload, vstore!, _llvm_barrier
 
-# Metal-compatible barrier (no-op for Metal)
+# Metal's AIR backend doesn't support inline assembly, so we can't implement
+# the same pure compiler barrier as LLVM (call void asm sideeffect "", "~{memory}"()).
+#
+# Implementation uses air.atomic.fence with conservative ordering:
+# - flags=DEVICE (1): Device memory (most vectorized operations)
+# - order=SeqCst (5): Sequentially consistent (strongest ordering)
+# - scope=Thread (0): Thread scope (no inter-thread sync)
+#
+# SeqCst with thread scope provides both compiler and hardware ordering
+# guarantees with minimal overhead (no inter-thread synchronization).
 Base.Experimental.@overlay Metal.method_table @inline function _llvm_barrier()
-    # No-op for Metal - inline assembly not supported
-    nothing
+    ccall("extern air.atomic.fence", llvmcall, Cvoid, (Cuint, Cuint, Cuint),
+          UInt32(1), UInt32(5), UInt32(0))
 end
 
 # ============================================================================
