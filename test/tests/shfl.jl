@@ -95,11 +95,13 @@ end
             @test from_device(dst) == Float32[1.0; 1:warpsz-1...]
         end
 
-        @testset "Up Float64" begin
-            src = to_device(Float64.(1:warpsz))
-            dst = to_device(zeros(Float64, warpsz))
-            launch(shfl_up_kernel, dst, src, 1; ndrange=warpsz)
-            @test from_device(dst) == Float64[1.0; 1:warpsz-1...]
+        if TEST_BACKEND != "metal"
+            @testset "Up Float64" begin
+                src = to_device(Float64.(1:warpsz))
+                dst = to_device(zeros(Float64, warpsz))
+                launch(shfl_up_kernel, dst, src, 1; ndrange=warpsz)
+                @test from_device(dst) == Float64[1.0; 1:warpsz-1...]
+            end
         end
 
         @testset "Up Float16" begin
@@ -124,14 +126,16 @@ end
             end
         end
 
-        @testset "Up ComplexType" begin
-            src = to_device([ComplexType(i, SubType(Float16(i), UInt8(i)), Float64(i)) for i in 1:warpsz])
-            dst = to_device([ComplexType(0, SubType(Float16(0), UInt8(0)), 0.0) for _ in 1:warpsz])
-            launch(shfl_up_kernel, dst, src, 1; ndrange=warpsz)
-            result = from_device(dst)
-            @test result[1] == ComplexType(1, SubType(Float16(1), UInt8(1)), 1.0)
-            for i in 2:warpsz
-                @test result[i] == ComplexType(i - 1, SubType(Float16(i - 1), UInt8(i - 1)), Float64(i - 1))
+        if TEST_BACKEND != "metal"
+            @testset "Up ComplexType" begin
+                src = to_device([ComplexType(i, SubType(Float16(i), UInt8(i)), Float64(i)) for i in 1:warpsz])
+                dst = to_device([ComplexType(0, SubType(Float16(0), UInt8(0)), 0.0) for _ in 1:warpsz])
+                launch(shfl_up_kernel, dst, src, 1; ndrange=warpsz)
+                result = from_device(dst)
+                @test result[1] == ComplexType(1, SubType(Float16(1), UInt8(1)), 1.0)
+                for i in 2:warpsz
+                    @test result[i] == ComplexType(i - 1, SubType(Float16(i - 1), UInt8(i - 1)), Float64(i - 1))
+                end
             end
         end
 

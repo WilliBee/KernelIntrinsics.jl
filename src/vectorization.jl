@@ -17,7 +17,7 @@ src = cu(Int32.(1:100))
 values = vload_multi(src, 7, Val(8))  # loads elements 7:14
 ```
 
-See also: [`vload`](@ref), [`vstore_multi!`](@ref)
+See also: [`vload`](@ref)
 """
 function vload_multi end
 
@@ -40,7 +40,7 @@ dst = cu(zeros(Int32, 100))
 vstore_multi!(dst, 7, (Int32(1), Int32(2), Int32(3), Int32(4)))
 ```
 
-See also: [`vstore!`](@ref), [`vload_multi`](@ref)
+See also: [`vstore!`](@ref)
 """
 function vstore_multi! end
 
@@ -66,9 +66,9 @@ Load `Nitem` elements from array `A` as a tuple, using vectorized memory operati
   block of `Nitem` elements, i.e. loads from `(idx-1)*Nitem + 1` to `idx*Nitem`. For example,
   `idx=2` loads elements `[5,6,7,8]` for `Nitem=4`. When the array base pointer is
   `Nitem`-aligned, this generates optimal aligned vector loads (`ld.global.v4`); otherwise
-  falls back to [`vload_multi`](@ref).
+  falls back to `vload_multi`.
 - `Val(false)` (direct): Loads starting directly at `idx`, so `idx=2` loads elements
-  `[2,3,4,5]`. Always uses [`vload_multi`](@ref) to handle potential misalignment.
+  `[2,3,4,5]`. Always uses `vload_multi` to handle potential misalignment.
 
 # Example
 ```julia
@@ -108,9 +108,9 @@ Store `Nitem` elements from a tuple to array `A`, using vectorized memory operat
   block of `Nitem` elements, i.e. stores to `(idx-1)*Nitem + 1` through `idx*Nitem`. For
   example, `idx=2` stores to elements `[5,6,7,8]` for `Nitem=4`. When the array base pointer
   is `Nitem`-aligned, this generates optimal aligned vector stores (`st.global.v4`); otherwise
-  falls back to [`vstore_multi!`](@ref).
+  falls back to `vstore_multi!`.
 - `Val(false)` (direct): Stores starting directly at `idx`, so `idx=2` stores to elements
-  `[2,3,4,5]`. Always uses [`vstore_multi!`](@ref) to handle potential misalignment.
+  `[2,3,4,5]`. Always uses `vstore_multi!` to handle potential misalignment.
 
 # Example
 ```julia
@@ -219,11 +219,11 @@ end
     if !ispow2(sizeof(T))
         if Rebase
             base = (idx - 1) * Nitem + 1
-            for i in 1:Nitem
+            for i in ntuple(identity, Val(Nitem))
                 A[base+i-1] = values[i]
             end
         else
-            for i in 1:Nitem
+            for i in ntuple(identity, Val(Nitem))
                 A[idx+i-1] = values[i]
             end
         end
@@ -434,14 +434,14 @@ end
 
 @inline function _vstore_batch!(A::AbstractArray{T}, idx, values::NTuple{Nitem,T}) where {T,Nitem}
     base = (idx - 1) * Nitem + 1
-    for i in 1:Nitem
+    for i in ntuple(identity, Val(Nitem))
         A[base+i-1] = values[i]
     end
     return
 end
 
 @inline function _vstore_norebase!(A::AbstractArray{T}, idx, values::NTuple{Nitem,T}) where {T,Nitem}
-    for i in 1:Nitem
+    for i in ntuple(identity, Val(Nitem))
         A[idx+i-1] = values[i]
     end
     return

@@ -7,7 +7,7 @@ A Julia package providing low-level memory access primitives and warp-level oper
 - **Warp operations**: shuffle (`@shfl`), inclusive scan (`@warpreduce`), reduction (`@warpfold`), vote (`@vote`)
 - **Vectorized memory operations** (`vload`, `vstore!`, `vload_multi`, `vstore_multi!`) generating `ld.global.v4`/`st.global.v4` PTX instructions
 
-Currently supports CUDA and ROCm backends. Other backends planned.
+Currently supports CUDA, ROCm and Metal backends. Other backends planned.
 
 ## Installation
 
