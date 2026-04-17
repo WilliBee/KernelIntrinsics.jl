@@ -5,7 +5,7 @@ using Pkg
 include("meta_helpers.jl")
 
 TEST_BACKEND = get(ENV, "TEST_BACKEND") do
-    backend_str = has_cuda() ? "cuda" : has_roc() ? "roc" : "unknown"
+    backend_str = has_cuda() ? "cuda" : has_roc() ? "roc" : has_metal() ? "metal" : "unknown"
     @info "TEST_BACKEND not set, defaulting to $backend_str"
     backend_str
 end
@@ -53,6 +53,15 @@ elseif TEST_BACKEND == "roc"
     end
     AT = ROCArray
     backend = ROCBackend()
+    include("general_routine.jl")
+elseif TEST_BACKEND == "metal"
+    using Metal
+    if !Metal.functional()
+        @warn "No Metal device found — skipping tests"
+        exit(0)
+    end
+    AT = MtlArray
+    backend = MetalBackend()
     include("general_routine.jl")
 else
     error("Unknown backend: $TEST_BACKEND")

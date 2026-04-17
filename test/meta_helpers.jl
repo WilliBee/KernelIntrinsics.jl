@@ -15,3 +15,11 @@ function has_roc()
         return false
     end
 end
+
+function has_metal()
+    try
+        return Sys.isapple()
+    catch
+        return false
+    end
+end

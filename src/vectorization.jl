@@ -219,11 +219,11 @@ end
     if !ispow2(sizeof(T))
         if Rebase
             base = (idx - 1) * Nitem + 1
-            for i in 1:Nitem
+            for i in ntuple(identity, Val(Nitem))
                 A[base+i-1] = values[i]
             end
         else
-            for i in 1:Nitem
+            for i in ntuple(identity, Val(Nitem))
                 A[idx+i-1] = values[i]
             end
         end
@@ -434,14 +434,14 @@ end
 
 @inline function _vstore_batch!(A::AbstractArray{T}, idx, values::NTuple{Nitem,T}) where {T,Nitem}
     base = (idx - 1) * Nitem + 1
-    for i in 1:Nitem
+    for i in ntuple(identity, Val(Nitem))
         A[base+i-1] = values[i]
     end
     return
 end
 
 @inline function _vstore_norebase!(A::AbstractArray{T}, idx, values::NTuple{Nitem,T}) where {T,Nitem}
-    for i in 1:Nitem
+    for i in ntuple(identity, Val(Nitem))
         A[idx+i-1] = values[i]
     end
     return
